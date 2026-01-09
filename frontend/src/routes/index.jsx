@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
+import Layout from '../components/Layout/Layout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import AdminRoute from '../components/auth/AdminRoute';
 
