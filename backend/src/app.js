@@ -26,14 +26,17 @@ class Application {
     this.app.use(helmet());
     
     // CORS configuration
-    this.app.use(cors({
-      origin: process.env.NODE_ENV === 'development' 
-        ? ['http://localhost:3000'] 
-        : process.env.CLIENT_URL,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+this.app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://crud-api-implementation.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 
     // Body parsing
     this.app.use(express.json({ limit: '10kb' }));
