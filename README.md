@@ -85,131 +85,98 @@ A production-ready, scalable REST API with JWT authentication, Role-Based Access
 
 
 🚀 Local Setup Guide
+
+-----------
+
 Prerequisites
+------
 Node.js (v16 or higher)
-
 MongoDB (Local or Atlas)
-
 Git
-
 Code Editor (VS Code recommended)
 
-Step 1: Clone the Repository
-bash
-git clone https://github.com/yourusername/scalable-auth-api.git
-cd scalable-auth-api
-Step 2: Backend Setup
-2.1 Navigate to backend directory
-bash
-cd backend
-2.2 Install dependencies
-bash
-npm install
-2.3 Configure environment variables
-bash
-# Copy the example environment file
-cp .env.example .env
+🚀 Local Setup Guide
 
-# Edit .env file with your configurations
-2.4 Update .env file with these values:
-env
-# Server Configuration
-PORT=5000
-NODE_ENV=development
+    Step 1: Clone the Repository
+    git clone https://github.com/StudentTahseenraza/CRUD-API-implementation.git
+    cd CRUD-API-implementation
+    
+    Step 2: Backend Setup
+    2.1 Navigate to backend directory
+    cd backend
+    
+    2.2 Install dependencies
+    npm install
+    
+    2.3 Configure environment variables
+    
+    # Copy the example environment file
+    cp .env.example .env
+    # Edit .env file with your configurations
+    
+    2.4 Update .env file with these values:
+    env
+    # Server Configuration
+    PORT=5000
+    NODE_ENV=development
+    
+    # Database Configuration (Choose one)
+    # Option A: Local MongoDB
+    MONGODB_URI=mongodb://localhost:27017/task_manager_db
+    
+    # Option B: MongoDB Atlas (Recommended for production)
+    # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/task_manager_db
+    
+    # JWT Configuration
+    JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+    JWT_EXPIRE=7d
+    
+    # Security Configuration
+    BCRYPT_SALT_ROUNDS=10
+    RATE_LIMIT_WINDOW=900000  # 15 minutes in milliseconds
+    RATE_LIMIT_MAX=100
+    
+    # Development mode (with auto-restart)
+    npm run dev
+    
+    # Production mode
+    npm start
+    ✅ Backend should now be running at: http://localhost:5000
+    
+    Step 3: Frontend Setup
+    3.1 Open a new terminal and navigate to frontend
+    cd ../frontend
+    
+    3.2 Install dependencies
+    npm install
+    
+    3.3 Configure environment variables
+    # Copy the example environment file
+    cp .env.example .env
+    
+    # Edit .env file
+    3.4 Update .env file:
+    env
+    VITE_API_BASE_URL=http://localhost:5000/api/v1
+    VITE_APP_NAME=Task Management System
+    VITE_APP_VERSION=1.0.0
+    VITE_NODE_ENV=development
+    
+    3.5 Start the frontend development server
+    npm run dev
+    ✅ Frontend should now be running at: http://localhost:3000
 
-# Database Configuration (Choose one)
-
-# Option A: Local MongoDB
-MONGODB_URI=mongodb://localhost:27017/task_manager_db
-
-# Option B: MongoDB Atlas (Recommended for production)
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/task_manager_db
-
-# JWT Configuration
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-JWT_EXPIRE=7d
-
-# Security Configuration
-BCRYPT_SALT_ROUNDS=10
-RATE_LIMIT_WINDOW=900000  # 15 minutes in milliseconds
-RATE_LIMIT_MAX=100
-2.5 Start MongoDB
-For Windows:
-
-bash
-# Start MongoDB service
-net start MongoDB
-For macOS/Linux:
-
-bash
-# Start MongoDB service
-sudo systemctl start mongod
-# or
-mongod
-Alternative: Use Docker for MongoDB
-
-bash
-docker run -d -p 27017:27017 --name mongodb mongo:latest
-2.6 Start the backend server
-bash
-# Development mode (with auto-restart)
-npm run dev
-
-# Production mode
-npm start
-✅ Backend should now be running at: http://localhost:5000
-
-Step 3: Frontend Setup
-3.1 Open a new terminal and navigate to frontend
-bash
-cd ../frontend
-3.2 Install dependencies
-bash
-npm install
-3.3 Configure environment variables
-bash
-# Copy the example environment file
-cp .env.example .env
-
-# Edit .env file
-3.4 Update .env file:
-env
-VITE_API_BASE_URL=http://localhost:5000/api/v1
-VITE_APP_NAME=Task Management System
-VITE_APP_VERSION=1.0.0
-VITE_NODE_ENV=development
-3.5 Start the frontend development server
-bash
-npm run dev
-✅ Frontend should now be running at: http://localhost:3000
 
 👑 Admin Setup & Login Credentials
+
+---------------
+
 Default Admin Account
+-----
 The system automatically creates a default admin user on first startup:
 
-text
 📧 Email: admin@taskmaster.com
 🔑 Password: Admin@123
-👑 Role: Administrator
-How to Create Additional Admin Users:
-Method 1: Via MongoDB (Quick)
-bash
-# Connect to MongoDB
-mongosh
-
-# Switch to database
-use task_manager_db
-
-# Find existing users
-db.users.find({}, {email: 1, role: 1})
-
-# Update any user to admin
-db.users.updateOne(
-  { email: "user@example.com" },
-  { $set: { role: "admin" } }
-)
-Method 2: Via Admin Panel (After Login)
-Login as admin using default credentials
 
 Go to Admin Dashboard → User Management
 
@@ -218,3 +185,86 @@ Find the user you want to promote
 Change their role from "User" to "Admin"
 
 Save changes
+
+
+🔧 API Endpoints
+
+------------------
+
+🔐 Authentication
+
+| Method | Endpoint                       | Description          | Access  |
+| ------ | ------------------------------ | -------------------- | ------- |
+| POST   | `/api/v1/auth/register`        | Register new user    | Public  |
+| POST   | `/api/v1/auth/login`           | Login user           | Public  |
+| GET    | `/api/v1/auth/me`              | Get current user     | Private |
+| PUT    | `/api/v1/auth/update-profile`  | Update user profile  | Private |
+| PUT    | `/api/v1/auth/change-password` | Change user password | Private |
+| POST   | `/api/v1/auth/logout`          | Logout user          | Private |
+
+
+📝 Tasks
+
+| Method | Endpoint              | Description                  | Access          |
+| ------ | --------------------- | ---------------------------- | --------------- |
+| POST   | `/api/v1/tasks`       | Create new task              | Private         |
+| GET    | `/api/v1/tasks`       | Get all tasks (with filters) | Private         |
+| GET    | `/api/v1/tasks/:id`   | Get single task              | Private         |
+| PUT    | `/api/v1/tasks/:id`   | Update task                  | Private (Owner) |
+| DELETE | `/api/v1/tasks/:id`   | Delete task                  | Admin Only      |
+| GET    | `/api/v1/tasks/stats` | Get task statistics          | Private         |
+
+
+🛡️ Admin (Admin Access Only)
+
+| Method | Endpoint                  | Description                |
+| ------ | ------------------------- | -------------------------- |
+| GET    | `/api/v1/admin/users`     | Get all users              |
+| GET    | `/api/v1/admin/users/:id` | Get user by ID             |
+| PUT    | `/api/v1/admin/users/:id` | Update user                |
+| DELETE | `/api/v1/admin/users/:id` | Delete user                |
+| GET    | `/api/v1/admin/tasks`     | Get all tasks (admin view) |
+| GET    | `/api/v1/admin/stats`     | Get system statistics      |
+
+
+📊 API Documentation
+----------------------
+Access Swagger UI for interactive API documentation:
+
+    http://localhost:5000/api-docs
+    
+🎯 Quick Test Commands
+
+------------
+
+Test Registration
+
+    curl -X POST http://localhost:5000/api/v1/auth/register \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Test User",
+        "email": "test@example.com",
+        "password": "password123"
+      }'
+      
+Test Login
+
+    curl -X POST http://localhost:5000/api/v1/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "test@example.com",
+        "password": "password123"
+      }'
+      
+Test Task Creation (with JWT)
+
+    curl -X POST http://localhost:5000/api/v1/tasks \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -d '{
+        "title": "Complete Project",
+        "description": "Finish the task management system",
+        "status": "pending",
+        "priority": "high"
+      }'
+
