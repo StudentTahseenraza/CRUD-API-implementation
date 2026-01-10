@@ -20,9 +20,10 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Layout />,
+    errorElement: <NotFound />,
     children: [
       {
-        path: '/',
+        index: true,
         element: <Navigate to="/dashboard" replace />,
       },
       {

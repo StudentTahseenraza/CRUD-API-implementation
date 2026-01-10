@@ -116,12 +116,31 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             setLoading(true);
-            await authService.logout();
+
+            // Try to call logout API if backend is available
+            try {
+                await authService.logout();
+            } catch (apiError) {
+                console.log('API logout failed, proceeding with client-side logout',apiError);
+            }
+
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+
+            // Reset state
             setUser(null);
             setIsAuthenticated(false);
+
+            // Use navigate instead of window.location for SPA
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+
             toast.success('Logged out successfully');
         } catch (error) {
             console.error('Logout error:', error);
+            toast.error('Logout failed');
         } finally {
             setLoading(false);
         }

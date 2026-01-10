@@ -14,16 +14,18 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['@heroicons/react', 'react-hot-toast'],
           form: ['react-hook-form', '@hookform/resolvers', 'yup'],
-          query: ['@tanstack/react-query', '@tanstack/react-table'],
+          query: ['@tanstack/react-query'],
         },
       },
     },
   },
+  // Add this for SPA routing
+  base: '/',
 });
