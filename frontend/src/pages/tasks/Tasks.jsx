@@ -1,271 +1,300 @@
-import React, { useState, useEffect } from 'react';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  PlusIcon, 
+  FunnelIcon,
+  ArrowPathIcon,
+  EyeIcon,
+  PencilIcon,
+  TrashIcon 
+} from '@heroicons/react/24/outline';
 import taskService from '../../api/taskService';
+import TaskTable from '../../components/tasks/TaskTable';
+import TaskFilters from '../../components/tasks/TaskFilters';
+import TaskForm from '../../components/tasks/TaskForm';
+import TaskEditModal from '../../components/tasks/TaskEditModal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ErrorDisplay from '../../components/common/ErrorDisplay';
+import EmptyState from '../../components/common/EmptyState';
+import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user, isAdmin } = useAuth();
+  
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    status: 'pending',
-    priority: 'medium'
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [filters, setFilters] = useState({
+    status: '',
+    priority: '',
+    search: '',
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
   });
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  // Fetch tasks
+  const { 
+    data: tasksData, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useQuery({
+    queryKey: ['tasks', filters],
+    queryFn: () => taskService.getTasks(filters),
+  });
 
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Starting to fetch tasks...');
-      
-      // Call the service
-      const response = await taskService.getTasks();
-      console.log('📦 Response from taskService:', response);
-      
-      // The response should be: { success: true, count: 2, total: 2, data: [...] }
-      if (response.success && response.data) {
-        console.log('✅ Found tasks:', response.data.length);
-        setTasks(response.data);
-      } else {
-        console.warn('⚠️ No tasks found or invalid response:', response);
-        setTasks([]);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch tasks:', error);
-      toast.error('Failed to load tasks');
-      setTasks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateTask = async (e) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-
-    try {
-      console.log('🔄 Creating task:', formData);
-      const response = await taskService.createTask(formData);
-      console.log('✅ Task creation response:', response);
-      
-      if (response.success) {
-        toast.success('Task created successfully!');
-        setShowCreateForm(false);
-        setFormData({ title: '', description: '', status: 'pending', priority: 'medium' });
-        fetchTasks(); // Refresh the list
-      } else {
-        toast.error(response.error || 'Failed to create task');
-      }
-    } catch (error) {
-      console.error('❌ Failed to create task:', error);
+  // Create task mutation
+  const createMutation = useMutation({
+    mutationFn: (taskData) => taskService.createTask(taskData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tasks']);
+      setShowCreateForm(false);
+      toast.success('Task created successfully!');
+    },
+    onError: (error) => {
       toast.error(error.message || 'Failed to create task');
+    },
+  });
+
+  // Update task mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, taskData }) => taskService.updateTask(id, taskData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tasks']);
+      setShowEditModal(false);
+      setSelectedTask(null);
+      toast.success('Task updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update task');
+    },
+  });
+
+  // Delete task mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id) => taskService.deleteTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tasks']);
+      toast.success('Task deleted successfully!');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete task');
+    },
+  });
+
+  const tasks = tasksData?.data || [];
+  const pagination = {
+    currentPage: tasksData?.currentPage || 1,
+    totalPages: tasksData?.totalPages || 1,
+    total: tasksData?.total || 0,
+  };
+
+  const handleCreateTask = (taskData) => {
+    createMutation.mutate(taskData);
+  };
+
+  const handleEditTask = async (taskId) => {
+    try {
+      const response = await taskService.getTask(taskId);
+      if (response.success) {
+        setSelectedTask(response.data);
+        setShowEditModal(true);
+      }
+    } catch (error) {
+      toast.error('Failed to load task for editing',error);
     }
   };
 
-  if (loading) {
+  const handleUpdateTask = (taskData) => {
+    if (selectedTask) {
+      updateMutation.mutate({ id: selectedTask._id, taskData });
+    }
+  };
+
+  const handleDeleteTask = (taskId) => {
+    const confirmMessage = isAdmin() 
+      ? 'Are you sure you want to delete this task? This action cannot be undone.'
+      : 'Only administrators can delete tasks.';
+
+    if (window.confirm(confirmMessage)) {
+      deleteMutation.mutate(taskId);
+    }
+  };
+
+  const handleViewTask = (taskId) => {
+    navigate(`/tasks/${taskId}`);
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters({ ...filters, ...newFilters });
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      status: '',
+      priority: '',
+      search: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    });
+  };
+
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
+  if (error) {
+    return <ErrorDisplay error={error} onRetry={refetch} />;
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Task Management</h1>
           <p className="text-gray-600">
-            Total tasks: {tasks.length} | Showing all tasks
+            Manage and track all your tasks efficiently
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          New Task
-        </button>
+        
+        <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+          <button
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh"
+          >
+            <ArrowPathIcon className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+          
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            New Task
+          </button>
+        </div>
       </div>
 
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <FunnelIcon className="h-5 w-5 mr-2" />
+            Filters
+          </h2>
+          {(filters.status || filters.priority || filters.search) && (
+            <button
+              onClick={handleClearFilters}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+        <TaskFilters filters={filters} onFilterChange={handleFilterChange} />
+      </div>
+
+      {/* Create Task Form */}
       {showCreateForm && (
-        <div className="p-6 border rounded-lg bg-white shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Create New Task</h3>
-          <form onSubmit={handleCreateTask} className="space-y-4">
-            <div>
-              <label className="block mb-2 font-medium text-gray-700">Title *</label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter task title"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 font-medium text-gray-700">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows="3"
-                placeholder="Enter task description (optional)"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-2 font-medium text-gray-700">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 font-medium text-gray-700">Priority</label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-              >
-                Create Task
-              </button>
-            </div>
-          </form>
+        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+          <TaskForm
+            onSubmit={handleCreateTask}
+            onCancel={() => setShowCreateForm(false)}
+            isLoading={createMutation.isLoading}
+          />
         </div>
       )}
 
-      {/* Tasks List */}
-      <div className="border rounded-lg overflow-hidden bg-white shadow-md">
-        <div className="p-4 border-b bg-gray-50">
-          <h2 className="font-semibold text-gray-800">Task List</h2>
-          <p className="text-sm text-gray-600">{tasks.length} task(s) found</p>
-        </div>
-        
-        {tasks.length === 0 ? (
-          <div className="p-8 text-center">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+      {/* Tasks Summary */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Tasks Overview</h3>
+            <p className="text-sm text-gray-600">
+              Showing {tasks.length} of {pagination.total} tasks
+              {pagination.totalPages > 1 && ` • Page ${pagination.currentPage} of ${pagination.totalPages}`}
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm">
+              <span className="text-gray-600">Your role: </span>
+              <span className={`font-medium ${isAdmin() ? 'text-purple-600' : 'text-blue-600'}`}>
+                {isAdmin() ? 'Administrator' : 'User'}
+              </span>
             </div>
-            <p className="text-gray-500 mb-2">No tasks found</p>
-            <p className="text-sm text-gray-400 mb-4">Create your first task using the "New Task" button above</p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              Create Your First Task
-            </button>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-3 text-left text-sm font-medium text-gray-700">Title</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-700">Priority</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-700">Created Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => (
-                  <tr key={task._id} className="border-t hover:bg-gray-50 transition-colors">
-                    <td className="p-3">
-                      <div className="font-medium text-gray-900">{task.title}</div>
-                      {task.description && (
-                        <div className="text-sm text-gray-500 mt-1 truncate max-w-xs">
-                          {task.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
-                      </span>
-                    </td>
-                    <td className="p-3 text-sm text-gray-600">
-                      {new Date(task.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Debug Info Panel */}
-      {/* <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
-        <h3 className="font-semibold text-blue-800 mb-2">Debug Information</h3>
-        <div className="text-sm text-blue-700 space-y-1">
-          <p>✅ Backend returned: {tasks.length} task(s)</p>
-          <p>🔄 Loading state: {loading ? 'Loading...' : 'Complete'}</p>
-          <p>📊 User ID: {localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 'Not logged in'}</p>
-          <button 
-            onClick={fetchTasks}
-            className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-          >
-            Refresh Tasks
-          </button>
-          <button 
-            onClick={() => console.log('Tasks state:', tasks)}
-            className="mt-2 ml-2 px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
-          >
-            Log Tasks to Console
-          </button>
-        </div> */}
-      {/* </div> */}
+      {/* Tasks Table */}
+      {tasks.length === 0 ? (
+        <EmptyState
+          title="No tasks found"
+          description="No tasks match your current filters. Try adjusting your search criteria or create a new task."
+          action={
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Create Your First Task
+            </button>
+          }
+        />
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <TaskTable
+            tasks={tasks}
+            onEdit={handleEditTask}
+            onDelete={handleDeleteTask}
+            onView={handleViewTask}
+            isLoading={deleteMutation.isLoading}
+          />
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {showEditModal && selectedTask && (
+        <TaskEditModal
+          task={selectedTask}
+          onSubmit={handleUpdateTask}
+          onCancel={() => {
+            setShowEditModal(false);
+            setSelectedTask(null);
+          }}
+          isLoading={updateMutation.isLoading}
+        />
+      )}
+
+      {/* Permissions Guide */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="text-sm font-semibold text-blue-800 mb-2">Permissions Guide</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div className="flex items-center">
+            <EyeIcon className="h-4 w-4 text-blue-600 mr-2" />
+            <span className="text-gray-700">View: Everyone</span>
+          </div>
+          <div className="flex items-center">
+            <PencilIcon className="h-4 w-4 text-green-600 mr-2" />
+            <span className="text-gray-700">Edit: Task owners & Admins</span>
+          </div>
+          <div className="flex items-center">
+            <TrashIcon className="h-4 w-4 text-red-600 mr-2" />
+            <span className="text-gray-700">Delete: Admins only</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

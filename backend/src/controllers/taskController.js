@@ -166,8 +166,28 @@ class TaskController {
     // @access  Private
     static async updateTask(req, res, next) {
         try {
-            // Filter updates
-            const allowedUpdates = ['title', 'description', 'status', 'priority', 'dueDate', 'tags', 'assignedTo'];
+            const task = await Task.findById(req.params.id);
+
+            if (!task) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Task not found'
+                });
+            }
+
+            // Check permissions: Admin or task owner
+            const isOwner = task.createdBy.toString() === req.user._id.toString();
+            const isAdmin = req.user.role === 'admin';
+
+            if (!isAdmin && !isOwner) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Not authorized to update this task'
+                });
+            }
+
+            // Filter updates - users can update basic fields, admins can update everything
+            const allowedUpdates = ['title', 'description', 'status', 'priority', 'dueDate', 'tags'];
             const updates = {};
 
             Object.keys(req.body).forEach(key => {
@@ -176,25 +196,21 @@ class TaskController {
                 }
             });
 
-            // Admin can update any field, users only specific fields
-            if (req.user.role !== 'admin') {
-                delete updates.assignedTo;
+            // Only admin can assign tasks to other users
+            if (req.body.assignedTo && isAdmin) {
+                updates.assignedTo = req.body.assignedTo;
             }
 
-            const task = await Task.findByIdAndUpdate(
+            const updatedTask = await Task.findByIdAndUpdate(
                 req.params.id,
                 updates,
                 { new: true, runValidators: true }
-            );
-
-            if (!task) {
-                throw new ErrorHandler('Task not found', 404);
-            }
+            ).populate('createdBy', 'name email');
 
             res.status(200).json({
                 success: true,
                 message: 'Task updated successfully',
-                data: task
+                data: updatedTask
             });
         } catch (error) {
             next(error);
@@ -203,13 +219,24 @@ class TaskController {
 
     // @desc    Delete task
     // @route   DELETE /api/v1/tasks/:id
-    // @access  Private (Admin or Owner)
+    // @access  Private (Admin only)
     static async deleteTask(req, res, next) {
         try {
             const task = await Task.findById(req.params.id);
 
             if (!task) {
-                throw new ErrorHandler('Task not found', 404);
+                return res.status(404).json({
+                    success: false,
+                    error: 'Task not found'
+                });
+            }
+
+            // Only admin can delete tasks
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Only administrators can delete tasks'
+                });
             }
 
             await task.deleteOne();
