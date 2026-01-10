@@ -91,8 +91,11 @@ A production-ready, scalable REST API with JWT authentication, Role-Based Access
 Prerequisites
 ------
 Node.js (v16 or higher)
+
 MongoDB (Local or Atlas)
+
 Git
+
 Code Editor (VS Code recommended)
 
 🚀 Local Setup Guide
@@ -267,4 +270,5 @@ Test Task Creation (with JWT)
         "status": "pending",
         "priority": "high"
       }'
+
 
